@@ -7,6 +7,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import javax.swing.table.DefaultTableModel;
 
 public class GestionInventarioGUI extends JFrame {
     private Inventario inventario;
@@ -162,6 +163,7 @@ public class GestionInventarioGUI extends JFrame {
         JPanel pedidoPanel = new JPanel(new BorderLayout(10, 10));
         pedidoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+        // Input fields for creating an order
         JPanel inputPanel = new JPanel(new GridLayout(4, 2, 10, 10));
         inputPanel.setBorder(BorderFactory.createTitledBorder("Realizar Pedido"));
         inputPanel.add(new JLabel("Seleccionar Producto:"));
@@ -173,34 +175,79 @@ public class GestionInventarioGUI extends JFrame {
         inputPanel.add(new JLabel("Fecha de Entrega:"));
         JTextField fechaField = new JTextField(LocalDate.now().toString());
         inputPanel.add(fechaField);
-        JCheckBox entregadoCheckBox = new JCheckBox("Entregado");
-        inputPanel.add(entregadoCheckBox);
 
-        JButton actualizarButton = new JButton("Actualizar Pedido");
-        actualizarButton.addActionListener(e -> {
+        // Table to display orders
+        String[] columnNames = {"Producto", "Cantidad", "Fecha de Entrega", "Entregado"};
+        DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                if (columnIndex == 3) {
+                    return Boolean.class; // Set the "Entregado" column as Boolean for checkbox
+                }
+                return super.getColumnClass(columnIndex);
+            }
+        };
+        JTable pedidosTable = new JTable(tableModel);
+        pedidosTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        pedidosTable.getColumnModel().getColumn(3).setCellEditor(new DefaultCellEditor(new JCheckBox())); // Add checkbox editor
+        JScrollPane tableScrollPane = new JScrollPane(pedidosTable);
+
+        // Button to add an order
+        JButton guardarButton = new JButton("Guardar Pedido");
+        guardarButton.addActionListener(e -> {
             String productoSeleccionado = (String) productoComboBox.getSelectedItem();
             try {
                 int cantidad = Integer.parseInt(cantidadField.getText());
-                if (entregadoCheckBox.isSelected() && productoSeleccionado != null) {
-                    for (Producto producto : productos) {
-                        if (producto.getNombre().equals(productoSeleccionado)) {
-                            producto.setCantidad(producto.getCantidad() + cantidad);
-                            inventario.setPresupuestoMaximo(inventario.getPresupuestoMaximo() - (producto.getCostoUnitario() * cantidad));
-                            presupuestoActualLabel.setText(String.format("Presupuesto Actual: $%.2f", inventario.getPresupuestoMaximo()));
-                            JOptionPane.showMessageDialog(this, "Pedido actualizado correctamente.");
-                            break;
-                        }
-                    }
+                String fecha = fechaField.getText();
+                if (productoSeleccionado != null && cantidad > 0) {
+                    // Add the order to the table
+                    Object[] row = {productoSeleccionado, cantidad, fecha, false};
+                    tableModel.addRow(row);
+
+                    // Clear input fields
+                    cantidadField.setText("");
+                    fechaField.setText(LocalDate.now().toString());
                 } else {
-                    JOptionPane.showMessageDialog(this, "Marque como entregado para actualizar.", "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Ingrese valores válidos.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(this, "Ingrese una cantidad válida.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        pedidoPanel.add(inputPanel, BorderLayout.CENTER);
-        pedidoPanel.add(actualizarButton, BorderLayout.SOUTH);
+        // Button to update deliveries
+        JButton actualizarEntregasButton = new JButton("Actualizar Entregas");
+        actualizarEntregasButton.addActionListener(e -> {
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                boolean entregado = (boolean) tableModel.getValueAt(i, 3);
+                if (entregado) {
+                    String productoNombre = (String) tableModel.getValueAt(i, 0);
+                    int cantidad = (int) tableModel.getValueAt(i, 1);
+
+                    // Update stock for the delivered product
+                    for (Producto producto : productos) {
+                        if (producto.getNombre().equals(productoNombre)) {
+                            producto.setCantidad(producto.getCantidad() + cantidad);
+                            JOptionPane.showMessageDialog(this, "Stock actualizado para el producto: " + productoNombre);
+                            break;
+                        }
+                    }
+
+                    // Remove the delivered order from the table
+                    tableModel.removeRow(i);
+                    i--; // Adjust the index after removing a row
+                }
+            }
+        });
+
+        // Panel for buttons
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttonPanel.add(guardarButton);
+        buttonPanel.add(actualizarEntregasButton);
+
+        pedidoPanel.add(inputPanel, BorderLayout.NORTH);
+        pedidoPanel.add(tableScrollPane, BorderLayout.CENTER);
+        pedidoPanel.add(buttonPanel, BorderLayout.SOUTH);
 
         return pedidoPanel;
     }
@@ -276,21 +323,31 @@ public class GestionInventarioGUI extends JFrame {
         JPanel inventarioPanel = new JPanel(new BorderLayout(10, 10));
         inventarioPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JTextArea inventarioArea = new JTextArea();
-        inventarioArea.setEditable(false);
-        inventarioArea.setBorder(BorderFactory.createTitledBorder("Inventario Actual"));
+        // Table to display inventory
+        String[] columnNames = {"Producto", "Cantidad", "Costo Unitario", "Precio Venta"};
+        DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0);
+        JTable inventarioTable = new JTable(tableModel);
+        JScrollPane tableScrollPane = new JScrollPane(inventarioTable);
 
+        // Button to update inventory
         JButton actualizarButton = new JButton("Actualizar Inventario");
         actualizarButton.addActionListener(e -> {
-            StringBuilder inventarioTexto = new StringBuilder();
+            // Clear the table before updating
+            tableModel.setRowCount(0);
+
+            // Populate the table with current inventory data
             for (Producto producto : productos) {
-                inventarioTexto.append(String.format("Producto: %s, Cantidad: %d, Costo Unitario: $%.2f, Precio Venta: $%.2f\n",
-                        producto.getNombre(), producto.getCantidad(), producto.getCostoUnitario(), producto.calcularPrecioVenta()));
+                Object[] row = {
+                        producto.getNombre(),
+                        producto.getCantidad(),
+                        String.format("$%.2f", producto.getCostoUnitario()),
+                        String.format("$%.2f", producto.calcularPrecioVenta())
+                };
+                tableModel.addRow(row);
             }
-            inventarioArea.setText(inventarioTexto.toString());
         });
 
-        inventarioPanel.add(new JScrollPane(inventarioArea), BorderLayout.CENTER);
+        inventarioPanel.add(tableScrollPane, BorderLayout.CENTER);
         inventarioPanel.add(actualizarButton, BorderLayout.SOUTH);
 
         return inventarioPanel;
