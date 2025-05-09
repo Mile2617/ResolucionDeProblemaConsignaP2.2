@@ -248,6 +248,11 @@ public class GestionInventarioGUI extends JFrame {
                         if (producto.getNombre().equals(productoNombre)) {
                             producto.setCantidad(producto.getCantidad() + cantidad);
                             JOptionPane.showMessageDialog(this, "Stock actualizado para el producto: " + productoNombre);
+
+                            // Verificar si el stock es menor al stock mínimo
+                            if (producto.getCantidad() < producto.getStockMinimo()) {
+                                JOptionPane.showMessageDialog(this, "El stock de " + productoNombre + " es inferior al stock mínimo. Se debe realizar un pedido.");
+                            }
                             break;
                         }
                     }
@@ -317,6 +322,13 @@ public class GestionInventarioGUI extends JFrame {
                                 stockDisponibleLabel.setText(String.valueOf(producto.getCantidad()));
                                 ingresoTotal += ganancia;
 
+                                // Verificar si el stock es menor que el stock mínimo
+                                if (producto.getCantidad() < producto.getStockMinimo()) {
+                                    JOptionPane.showMessageDialog(this,
+                                            "El stock de " + producto.getNombre() + " es inferior al stock mínimo. Se debe realizar un pedido.",
+                                            "Alerta de Stock Bajo", JOptionPane.WARNING_MESSAGE);
+                                }
+
                                 ingresoGeneradoLabel.setText(String.format("$%.2f", ingresoTotal));
 
                                 JOptionPane.showMessageDialog(this, "Venta realizada correctamente.");
@@ -355,6 +367,7 @@ public class GestionInventarioGUI extends JFrame {
 
         return ventaPanel;
     }
+
 
     private JPanel crearInventarioPanel() {
         JPanel inventarioPanel = new JPanel(new BorderLayout(10, 10));
