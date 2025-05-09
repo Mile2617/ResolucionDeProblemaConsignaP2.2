@@ -44,6 +44,15 @@ public class Producto {
     public double calcularCostoTotal() {
         return cantidad * costoUnitario;
     }
+    private int stockMinimo;
+
+    public int getStockMinimo() {
+        return stockMinimo;
+    }
+
+    public void setStockMinimo(int stockMinimo) {
+        this.stockMinimo = stockMinimo;
+    }
 
     public void mostrarInfo() {
         System.out.println("Producto: " + nombre +

@@ -119,7 +119,7 @@ public class GestionInventarioGUI extends JFrame {
         JPanel productoPanel = new JPanel(new BorderLayout(10, 10));
         productoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JPanel inputPanel = new JPanel(new GridLayout(4, 2, 10, 10));
+        JPanel inputPanel = new JPanel(new GridLayout(5, 2, 10, 10));  // Aumentamos las filas para incluir el stock mínimo
         inputPanel.setBorder(BorderFactory.createTitledBorder("Crear Producto"));
         inputPanel.add(new JLabel("Nombre del Producto:"));
         JTextField nombreField = new JTextField();
@@ -133,6 +133,9 @@ public class GestionInventarioGUI extends JFrame {
         inputPanel.add(new JLabel("Porcentaje de Ganancia:"));
         JTextField gananciaField = new JTextField();
         inputPanel.add(gananciaField);
+        inputPanel.add(new JLabel("Stock Mínimo:"));  // Nuevo campo para stock mínimo
+        JTextField stockMinimoField = new JTextField();
+        inputPanel.add(stockMinimoField);
 
         JButton agregarButton = new JButton("Agregar Producto");
         agregarButton.addActionListener(e -> {
@@ -141,25 +144,22 @@ public class GestionInventarioGUI extends JFrame {
                 int cantidad = Integer.parseInt(cantidadField.getText());
                 double costo = Double.parseDouble(costoField.getText());
                 double ganancia = Double.parseDouble(gananciaField.getText());
-                double totalCostoProducto = cantidad * costo;
+                int stockMinimo = Integer.parseInt(stockMinimoField.getText());
 
-                if (cantidad > 0 && costo > 0 && ganancia >= 0) {
-                    if (totalCostoProducto > inventario.getPresupuestoMaximo()) {
-                        JOptionPane.showMessageDialog(this, "El costo total excede el presupuesto disponible.", "Error", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-
+                if (cantidad > 0 && costo > 0 && ganancia >= 0 && stockMinimo >= 0) {
                     Producto producto = new Producto(nombre, cantidad, costo);
                     producto.setPorcentajeGanancia(ganancia);
+                    producto.setStockMinimo(stockMinimo);  // Establecer el stock mínimo
                     productos.add(producto);
                     inventario.agregarProducto(producto);
                     actualizarComboBoxes();
-                    actualizarPresupuesto(-totalCostoProducto); // Restar del presupuesto el costo del producto agregado
+                    actualizarPresupuesto(-cantidad * costo); // Restar del presupuesto el costo total del producto agregado
 
                     nombreField.setText("");
                     cantidadField.setText("");  // Limpiar el campo de cantidad
                     costoField.setText("");     // Limpiar el campo de costo
                     gananciaField.setText(""); // Limpiar el campo de ganancia
+                    stockMinimoField.setText("");  // Limpiar el campo de stock mínimo
 
                     JOptionPane.showMessageDialog(this, "Producto agregado correctamente.");
                 } else {
@@ -175,7 +175,6 @@ public class GestionInventarioGUI extends JFrame {
 
         return productoPanel;
     }
-
     private JPanel crearPedidoPanel() {
         JPanel pedidoPanel = new JPanel(new BorderLayout(10, 10));
         pedidoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -301,6 +300,7 @@ public class GestionInventarioGUI extends JFrame {
         ingresoGeneradoLabel = new JLabel("$0.00");
         inputPanel.add(ingresoGeneradoLabel);
 
+        // ActionListener para actualizar el stock cuando se seleccione un producto
         ventaProductoComboBox.addActionListener(e -> {
             String productoSeleccionado = (String) ventaProductoComboBox.getSelectedItem();
             for (Producto producto : productos) {
@@ -320,13 +320,18 @@ public class GestionInventarioGUI extends JFrame {
                     for (Producto producto : productos) {
                         if (producto.getNombre().equals(productoSeleccionado)) {
                             if (producto.getCantidad() >= cantidad) {
+                                // Calcular ganancia
                                 double ganancia = cantidad * producto.calcularGanancia();
+                                // Restar cantidad vendida del stock
                                 producto.setCantidad(producto.getCantidad() - cantidad);
                                 stockDisponibleLabel.setText(String.valueOf(producto.getCantidad()));
-                                ingresoTotal += ganancia;
+                                ingresoTotal += ganancia; // Acumular la ganancia
+
+                                // Actualizar la etiqueta de ganancia generada
                                 ingresoGeneradoLabel.setText(String.format("$%.2f", ingresoTotal));
+
                                 JOptionPane.showMessageDialog(this, "Venta realizada correctamente.");
-                                cantidadField.setText("");
+                                cantidadField.setText(""); // Limpiar campo de cantidad
                             } else {
                                 JOptionPane.showMessageDialog(this, "Stock insuficiente.", "Error", JOptionPane.ERROR_MESSAGE);
                             }
@@ -340,27 +345,33 @@ public class GestionInventarioGUI extends JFrame {
             }
         });
 
-        JButton agregarGananciasButton = new JButton("Agregar Ganancias al Presupuesto");
-        agregarGananciasButton.addActionListener(e -> {
+        // Botón para agregar la ganancia al presupuesto
+        JButton agregarGananciaButton = new JButton("Agregar Ganancia al Presupuesto");
+        agregarGananciaButton.addActionListener(e -> {
+            // Verificar si hay ganancia acumulada
             if (ingresoTotal > 0) {
+                // Agregar la ganancia al presupuesto
                 actualizarPresupuesto(ingresoTotal);
+                // Reiniciar el total de ganancias
                 ingresoTotal = 0;
-                ingresoGeneradoLabel.setText("$0.00");
-                JOptionPane.showMessageDialog(this, "Ganancias agregadas al presupuesto.");
+                ingresoGeneradoLabel.setText("$0.00"); // Resetear la etiqueta de ganancia generada
+                JOptionPane.showMessageDialog(this, "Ganancia agregada al presupuesto correctamente.");
             } else {
-                JOptionPane.showMessageDialog(this, "No hay ganancias para agregar.", "Información", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "No hay ganancia acumulada para agregar al presupuesto.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
+        // Agregar los botones y el panel de información
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         buttonPanel.add(venderButton);
-        buttonPanel.add(agregarGananciasButton);
+        buttonPanel.add(agregarGananciaButton); // Agregar el botón de "Agregar Ganancia"
 
         ventaPanel.add(inputPanel, BorderLayout.CENTER);
         ventaPanel.add(buttonPanel, BorderLayout.SOUTH);
 
         return ventaPanel;
     }
+
 
     private JPanel crearInventarioPanel() {
         JPanel inventarioPanel = new JPanel(new BorderLayout(10, 10));
