@@ -157,6 +157,7 @@ public class GestionInventarioGUI extends JFrame {
     }
 
 
+
     private JPanel crearPedidoPanel() {
         JPanel pedidoPanel = new JPanel(new BorderLayout(10, 10));
         pedidoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
