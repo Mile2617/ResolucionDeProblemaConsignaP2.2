@@ -4,19 +4,29 @@ import java.util.ArrayList;
 
 public class Inventario {
     private double presupuestoMaximo;
+    private int stockMaximo;
     private ArrayList<Producto> productos;
 
-    public Inventario(double presupuestoMaximo) {
+    public Inventario(double presupuestoMaximo, int stockMaximo) {
         this.presupuestoMaximo = presupuestoMaximo;
+        this.stockMaximo = stockMaximo;
         this.productos = new ArrayList<>();
     }
 
+    public int getStockMaximo() {
+        return stockMaximo;
+    }
+
+    public void setStockMaximo(int stockMaximo) {
+        this.stockMaximo = stockMaximo;
+    }
+
     public void agregarProducto(Producto p) {
-        if ((calcularCostoTotalInventario() + p.calcularCostoTotal()) <= presupuestoMaximo) {
+        if ((calcularCostoTotalInventario() + p.calcularCostoTotal()) <= presupuestoMaximo && productos.size() < stockMaximo) {
             productos.add(p);
             System.out.println("Producto agregado: " + p.getNombre());
         } else {
-            System.out.println("No se puede agregar el producto '" + p.getNombre() + "': supera el presupuesto.");
+            System.out.println("No se puede agregar el producto: supera el presupuesto o el stock máximo.");
         }
     }
 
