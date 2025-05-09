@@ -73,7 +73,7 @@ public class GestionInventarioGUI extends JFrame {
         inputPanel.add(stockField);
 
         // Aumentar el área donde se ven las restricciones actuales
-        JTextArea restriccionesArea = new JTextArea(10, 30);  // Aumentar filas a 10
+        JTextArea restriccionesArea = new JTextArea(20, 30);  // Aumentar filas a 10
         restriccionesArea.setEditable(false);
         restriccionesArea.setBorder(BorderFactory.createTitledBorder("Restricciones actuales"));
 
@@ -301,7 +301,6 @@ public class GestionInventarioGUI extends JFrame {
         ingresoGeneradoLabel = new JLabel("$0.00");
         inputPanel.add(ingresoGeneradoLabel);
 
-        // ActionListener para actualizar el stock cuando se seleccione un producto
         ventaProductoComboBox.addActionListener(e -> {
             String productoSeleccionado = (String) ventaProductoComboBox.getSelectedItem();
             for (Producto producto : productos) {
@@ -327,7 +326,6 @@ public class GestionInventarioGUI extends JFrame {
                                 ingresoTotal += ganancia;
                                 ingresoGeneradoLabel.setText(String.format("$%.2f", ingresoTotal));
                                 JOptionPane.showMessageDialog(this, "Venta realizada correctamente.");
-                                // Limpiar campos después de la venta
                                 cantidadField.setText("");
                             } else {
                                 JOptionPane.showMessageDialog(this, "Stock insuficiente.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -342,9 +340,24 @@ public class GestionInventarioGUI extends JFrame {
             }
         });
 
-        // Agregar el botón de venta y el panel de información
+        JButton agregarGananciasButton = new JButton("Agregar Ganancias al Presupuesto");
+        agregarGananciasButton.addActionListener(e -> {
+            if (ingresoTotal > 0) {
+                actualizarPresupuesto(ingresoTotal);
+                ingresoTotal = 0;
+                ingresoGeneradoLabel.setText("$0.00");
+                JOptionPane.showMessageDialog(this, "Ganancias agregadas al presupuesto.");
+            } else {
+                JOptionPane.showMessageDialog(this, "No hay ganancias para agregar.", "Información", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttonPanel.add(venderButton);
+        buttonPanel.add(agregarGananciasButton);
+
         ventaPanel.add(inputPanel, BorderLayout.CENTER);
-        ventaPanel.add(venderButton, BorderLayout.SOUTH);
+        ventaPanel.add(buttonPanel, BorderLayout.SOUTH);
 
         return ventaPanel;
     }
@@ -353,19 +366,26 @@ public class GestionInventarioGUI extends JFrame {
         JPanel inventarioPanel = new JPanel(new BorderLayout(10, 10));
         inventarioPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // Table to display inventory
+        // Tabla para mostrar el inventario
         String[] columnNames = {"Producto", "Cantidad", "Costo Unitario", "Precio Venta"};
         DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0);
         JTable inventarioTable = new JTable(tableModel);
         JScrollPane tableScrollPane = new JScrollPane(inventarioTable);
 
-        // Button to update inventory
+        // Etiqueta para mostrar el capital en inventario
+        JLabel capitalInventarioLabel = new JLabel("Capital en Inventario: $0.00");
+        capitalInventarioLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+
+        // Botón para actualizar el inventario
         JButton actualizarButton = new JButton("Actualizar Inventario");
         actualizarButton.addActionListener(e -> {
-            // Clear the table before updating
+            // Limpiar la tabla antes de actualizar
             tableModel.setRowCount(0);
 
-            // Populate the table with current inventory data
+            // Calcular el capital en inventario
+            double capitalInventario = 0.0;
+
+            // Poblar la tabla con los datos del inventario actual
             for (Producto producto : productos) {
                 Object[] row = {
                         producto.getNombre(),
@@ -374,11 +394,22 @@ public class GestionInventarioGUI extends JFrame {
                         String.format("$%.2f", producto.calcularPrecioVenta())
                 };
                 tableModel.addRow(row);
+
+                // Sumar el costo total del producto al capital en inventario
+                capitalInventario += producto.calcularCostoTotal();
             }
+
+            // Actualizar la etiqueta con el capital en inventario
+            capitalInventarioLabel.setText(String.format("Capital en Inventario: $%.2f", capitalInventario));
         });
 
+        // Panel para el botón y la etiqueta
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.add(actualizarButton, BorderLayout.WEST);
+        bottomPanel.add(capitalInventarioLabel, BorderLayout.EAST);
+
         inventarioPanel.add(tableScrollPane, BorderLayout.CENTER);
-        inventarioPanel.add(actualizarButton, BorderLayout.SOUTH);
+        inventarioPanel.add(bottomPanel, BorderLayout.SOUTH);
 
         return inventarioPanel;
     }
