@@ -45,7 +45,18 @@ public class GestionInventarioGUI extends JFrame {
         // Pestaña 5: Inventario Actual
         tabbedPane.addTab("Inventario Actual", crearInventarioPanel());
 
+        // Agregar el presupuesto en la esquina superior derecha
+        presupuestoActualLabel = new JLabel("Presupuesto Actual: $0.00");
+        presupuestoActualLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        add(presupuestoActualLabel, BorderLayout.NORTH);
+
         add(tabbedPane);
+    }
+
+    // Método para actualizar el presupuesto de todas las pestañas
+    private void actualizarPresupuesto(double cambio) {
+        inventario.setPresupuestoMaximo(inventario.getPresupuestoMaximo() + cambio);
+        presupuestoActualLabel.setText(String.format("Presupuesto Actual: $%.2f", inventario.getPresupuestoMaximo()));
     }
 
     private JPanel crearRestriccionesPanel() {
@@ -84,6 +95,7 @@ public class GestionInventarioGUI extends JFrame {
                     // Reset input fields
                     presupuestoField.setText("");
                     stockField.setText("");
+                    actualizarPresupuesto(0); // Actualizar presupuesto en todas las pestañas
                 } else {
                     JOptionPane.showMessageDialog(this, "Los valores deben ser mayores a 0.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -102,7 +114,6 @@ public class GestionInventarioGUI extends JFrame {
 
         return restriccionesPanel;
     }
-
 
     private JPanel crearProductoPanel() {
         JPanel productoPanel = new JPanel(new BorderLayout(10, 10));
@@ -130,19 +141,27 @@ public class GestionInventarioGUI extends JFrame {
                 int cantidad = Integer.parseInt(cantidadField.getText());
                 double costo = Double.parseDouble(costoField.getText());
                 double ganancia = Double.parseDouble(gananciaField.getText());
+                double totalCostoProducto = cantidad * costo;
+
                 if (cantidad > 0 && costo > 0 && ganancia >= 0) {
+                    if (totalCostoProducto > inventario.getPresupuestoMaximo()) {
+                        JOptionPane.showMessageDialog(this, "El costo total excede el presupuesto disponible.", "Error", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
                     Producto producto = new Producto(nombre, cantidad, costo);
                     producto.setPorcentajeGanancia(ganancia);
                     productos.add(producto);
                     inventario.agregarProducto(producto);
                     actualizarComboBoxes();
-                    JOptionPane.showMessageDialog(this, "Producto agregado correctamente.");
+                    actualizarPresupuesto(-totalCostoProducto); // Restar del presupuesto el costo del producto agregado
 
-                    // Limpiar los campos después de agregar el producto
                     nombreField.setText("");
-                    cantidadField.setText("0");  // Resetear cantidad a 0
-                    costoField.setText("0");     // Resetear costo a 0
-                    gananciaField.setText("0"); // Resetear ganancia a 0
+                    cantidadField.setText("");  // Limpiar el campo de cantidad
+                    costoField.setText("");     // Limpiar el campo de costo
+                    gananciaField.setText(""); // Limpiar el campo de ganancia
+
+                    JOptionPane.showMessageDialog(this, "Producto agregado correctamente.");
                 } else {
                     JOptionPane.showMessageDialog(this, "Ingrese valores válidos.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -157,13 +176,10 @@ public class GestionInventarioGUI extends JFrame {
         return productoPanel;
     }
 
-
-
     private JPanel crearPedidoPanel() {
         JPanel pedidoPanel = new JPanel(new BorderLayout(10, 10));
         pedidoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // Input fields for creating an order
         JPanel inputPanel = new JPanel(new GridLayout(4, 2, 10, 10));
         inputPanel.setBorder(BorderFactory.createTitledBorder("Realizar Pedido"));
         inputPanel.add(new JLabel("Seleccionar Producto:"));
@@ -176,71 +192,82 @@ public class GestionInventarioGUI extends JFrame {
         JTextField fechaField = new JTextField(LocalDate.now().toString());
         inputPanel.add(fechaField);
 
-        // Table to display orders
+        // Crear la tabla para mostrar los pedidos
         String[] columnNames = {"Producto", "Cantidad", "Fecha de Entrega", "Entregado"};
         DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public Class<?> getColumnClass(int columnIndex) {
                 if (columnIndex == 3) {
-                    return Boolean.class; // Set the "Entregado" column as Boolean for checkbox
+                    return Boolean.class;  // Hacer que la columna "Entregado" sea una casilla de verificación
                 }
                 return super.getColumnClass(columnIndex);
             }
         };
         JTable pedidosTable = new JTable(tableModel);
-        pedidosTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        pedidosTable.getColumnModel().getColumn(3).setCellEditor(new DefaultCellEditor(new JCheckBox())); // Add checkbox editor
         JScrollPane tableScrollPane = new JScrollPane(pedidosTable);
 
-        // Button to add an order
+        // Botón "Guardar Pedido" para agregar un pedido a la tabla
         JButton guardarButton = new JButton("Guardar Pedido");
         guardarButton.addActionListener(e -> {
             String productoSeleccionado = (String) productoComboBox.getSelectedItem();
             try {
                 int cantidad = Integer.parseInt(cantidadField.getText());
                 String fecha = fechaField.getText();
-                if (productoSeleccionado != null && cantidad > 0) {
-                    // Add the order to the table
-                    Object[] row = {productoSeleccionado, cantidad, fecha, false};
-                    tableModel.addRow(row);
 
-                    // Clear input fields
-                    cantidadField.setText("");
-                    fechaField.setText(LocalDate.now().toString());
-                } else {
-                    JOptionPane.showMessageDialog(this, "Ingrese valores válidos.", "Error", JOptionPane.ERROR_MESSAGE);
+                if (productoSeleccionado == null || cantidad <= 0 || fecha.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Por favor, ingrese valores válidos.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
                 }
+
+                Producto producto = inventario.getProducto(productoSeleccionado);
+                if (producto == null) {
+                    JOptionPane.showMessageDialog(this, "El producto seleccionado no existe.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                double totalCostoPedido = cantidad * producto.getCostoUnitario();
+                if (totalCostoPedido > inventario.getPresupuestoMaximo()) {
+                    JOptionPane.showMessageDialog(this, "El costo del pedido excede el presupuesto disponible.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                Object[] row = {productoSeleccionado, cantidad, fecha, false};
+                tableModel.addRow(row);
+                actualizarPresupuesto(-totalCostoPedido);  // Restar el costo del pedido del presupuesto
+
+                cantidadField.setText("");
+                fechaField.setText(LocalDate.now().toString());
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(this, "Ingrese una cantidad válida.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Por favor, ingrese una cantidad válida.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        // Button to update deliveries
+        // Botón "Actualizar Entrega" para actualizar los pedidos entregados
         JButton actualizarEntregasButton = new JButton("Actualizar Entregas");
         actualizarEntregasButton.addActionListener(e -> {
             for (int i = 0; i < tableModel.getRowCount(); i++) {
-                boolean entregado = (boolean) tableModel.getValueAt(i, 3);
+                boolean entregado = (boolean) tableModel.getValueAt(i, 3);  // Obtener si la casilla de "Entregado" está marcada
                 if (entregado) {
                     String productoNombre = (String) tableModel.getValueAt(i, 0);
                     int cantidad = (int) tableModel.getValueAt(i, 1);
 
-                    // Update stock for the delivered product
+                    // Actualizar el stock para el producto entregado
                     for (Producto producto : productos) {
                         if (producto.getNombre().equals(productoNombre)) {
-                            producto.setCantidad(producto.getCantidad() + cantidad);
+                            producto.setCantidad(producto.getCantidad() + cantidad);  // Sumar la cantidad al stock
                             JOptionPane.showMessageDialog(this, "Stock actualizado para el producto: " + productoNombre);
                             break;
                         }
                     }
 
-                    // Remove the delivered order from the table
+                    // Eliminar el pedido de la tabla
                     tableModel.removeRow(i);
-                    i--; // Adjust the index after removing a row
+                    i--;  // Ajustar el índice después de eliminar un pedido
+                    actualizarPresupuesto(cantidad * inventario.getProducto(productoNombre).calcularGanancia());  // Añadir ganancia al presupuesto
                 }
             }
         });
 
-        // Panel for buttons
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         buttonPanel.add(guardarButton);
         buttonPanel.add(actualizarEntregasButton);
@@ -261,12 +288,15 @@ public class GestionInventarioGUI extends JFrame {
         inputPanel.add(new JLabel("Seleccionar Producto:"));
         ventaProductoComboBox = new JComboBox<>();
         inputPanel.add(ventaProductoComboBox);
+
         inputPanel.add(new JLabel("Cantidad en Stock:"));
         stockDisponibleLabel = new JLabel("0");
         inputPanel.add(stockDisponibleLabel);
+
         inputPanel.add(new JLabel("Cantidad a Vender:"));
         JTextField cantidadField = new JTextField();
         inputPanel.add(cantidadField);
+
         inputPanel.add(new JLabel("Ganancia Generada:"));
         ingresoGeneradoLabel = new JLabel("$0.00");
         inputPanel.add(ingresoGeneradoLabel);
@@ -291,14 +321,14 @@ public class GestionInventarioGUI extends JFrame {
                     for (Producto producto : productos) {
                         if (producto.getNombre().equals(productoSeleccionado)) {
                             if (producto.getCantidad() >= cantidad) {
-                                double ingreso = cantidad * producto.calcularPrecioVenta();
+                                double ganancia = cantidad * producto.calcularGanancia();
                                 producto.setCantidad(producto.getCantidad() - cantidad);
                                 stockDisponibleLabel.setText(String.valueOf(producto.getCantidad()));
-                                ingresoTotal += ingreso;
+                                ingresoTotal += ganancia;
                                 ingresoGeneradoLabel.setText(String.format("$%.2f", ingresoTotal));
                                 JOptionPane.showMessageDialog(this, "Venta realizada correctamente.");
                                 // Limpiar campos después de la venta
-                                cantidadField.setText("0");
+                                cantidadField.setText("");
                             } else {
                                 JOptionPane.showMessageDialog(this, "Stock insuficiente.", "Error", JOptionPane.ERROR_MESSAGE);
                             }
@@ -312,12 +342,12 @@ public class GestionInventarioGUI extends JFrame {
             }
         });
 
+        // Agregar el botón de venta y el panel de información
         ventaPanel.add(inputPanel, BorderLayout.CENTER);
         ventaPanel.add(venderButton, BorderLayout.SOUTH);
 
         return ventaPanel;
     }
-
 
     private JPanel crearInventarioPanel() {
         JPanel inventarioPanel = new JPanel(new BorderLayout(10, 10));
